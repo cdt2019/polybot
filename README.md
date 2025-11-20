@@ -1,8 +1,8 @@
 # Polybot - Polymarket Trading Bot / Polymarket 交易机器人
 
-Polybot is an automated trading bot framework designed for Polymarket. It currently features a monitor for "Humanity's Last Exam" (HLE) scores and automatically places orders based on Gemini 3's performance.
+Polybot is an automated trading bot framework designed for Polymarket. 
 
-Polybot 是一个为 Polymarket 设计的自动化交易机器人框架。目前它包含一个针对 "Humanity's Last Exam" (HLE) 分数的监控器，并根据 Gemini 3 的表现自动下单。
+Polybot 是一个为 Polymarket 设计的自动化交易机器人框架。
 
 ## Features / 功能
 
