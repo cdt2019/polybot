@@ -21,7 +21,7 @@ Polybot 是一个为 Polymarket 设计的自动化交易机器人框架。
 
 1.  **Clone the repository / 克隆仓库**:
     ```bash
-    git clone <repository-url>
+    git clone [https://github.com/cdt2019/polybot.git](https://github.com/cdt2019/polybot.git)
     cd polybot
     ```
 
