@@ -15,7 +15,7 @@ export interface Executor<T> {
     /**
      * Executes an action based on the data.
      */
-    execute(data: T): Promise<void>;
+    execute(data: T): Promise<boolean>;
 }
 
 export interface Strategy<T> {

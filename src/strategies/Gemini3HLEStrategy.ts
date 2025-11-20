@@ -63,15 +63,15 @@ export class Gemini3HLEStrategy implements Strategy<HLEData | null> {
                         const orderType = (this.config.orderType || process.env.ORDER_TYPE || 'MARKET').toUpperCase() as 'LIMIT' | 'MARKET';
                         const orderPrice = this.config.orderPrice !== undefined ? this.config.orderPrice : parseFloat(process.env.ORDER_PRICE || '0');
 
-                        await this.executor.execute({
+                        const success = await this.executor.execute({
                             tokenId: tokenId,
                             price: orderPrice,
                             size: orderSize,
                             side: 'BUY',
                             type: orderType
                         });
-                        this.hasExecuted = true;
-                        return true;
+                        this.hasExecuted = success;
+                        return success;
                     } else {
                         logger.info(`[Gemini3HLEStrategy] Lowest ask ${lowestAsk} >= 0.90. Waiting for better price.`);
                     }

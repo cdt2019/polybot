@@ -52,7 +52,7 @@ export class PolymarketExecutor implements Executor<OrderParams> {
         }
     }
 
-    public async execute(order: OrderParams): Promise<void> {
+    public async execute(order: OrderParams): Promise<boolean> {
         const msg = `Executing ${order.type} order: ${order.side} ${order.size} of ${order.tokenId} at ${order.type === 'LIMIT' ? order.price : 'MARKET'}`;
         logger.info(msg);
         if (this.notifier) await this.notifier.notify(msg);
@@ -109,9 +109,11 @@ export class PolymarketExecutor implements Executor<OrderParams> {
             logger.info(`Order placed: ${JSON.stringify(response)}`);
             if (this.notifier) await this.notifier.notify(successMsg);
 
+            return true;
         } catch (error: any) {
             logger.error('Failed to execute order:', error);
             if (this.notifier) await this.notifier.notify(`Failed to execute order: ${error.message || error}`);
         }
+        return false;
     }
 }
