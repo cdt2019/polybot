@@ -8,7 +8,11 @@ export interface Market {
     slug: string;
     clobTokenIds: string[];
     outcomes: string[];
-    groupItemTitle: string
+    groupItemTitle: string,
+    orderPriceMinTickSize: number,
+    orderMinSize: number,
+    negRisk: boolean,
+    negRiskRequestID: string,
 }
 
 export interface Event {

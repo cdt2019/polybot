@@ -1,8 +1,14 @@
 import { TelegramNotifier } from "../notifiers/TelegramNotifier";
+import * as dotenv from 'dotenv';
 
+dotenv.config();
 async function main() {
-    const token = 'token';
-    const chatId = '11111';
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    if (!token || !chatId) {
+        console.error('TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is not set');
+        return;
+    }
     const tgNotifier = new TelegramNotifier(token, chatId);
 
     await tgNotifier.notify("Hello Telegram!");

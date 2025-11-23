@@ -1,4 +1,6 @@
-import { ClobClient, Side, OrderType } from '@polymarket/clob-client';
+import { ClobClient, Side } from '@polymarket/clob-client';
+import { SignatureType } from "@polymarket/order-utils"
+
 import { ethers } from 'ethers';
 import { Executor, Notifier } from '../core/types';
 import { logger } from '../core/logger';
@@ -16,15 +18,40 @@ export class PolymarketExecutor implements Executor<OrderParams> {
     private signer: ethers.Wallet;
     private notifier?: Notifier;
     private creds?: any;
+    private signatureType: SignatureType;
+    private funderAddress?: string;
+
 
     constructor(privateKey: string, notifier?: Notifier, chainId: number = 137) {
         this.signer = new ethers.Wallet(privateKey);
+        this.notifier = notifier;
+
+        this.funderAddress = process.env.POLYMARKET_FUNDER_ADDRESS;
+
+        if (this.funderAddress) {
+            logger.info(`Using funder Address: ${this.funderAddress}`);
+        }
+
+        const envSigType = process.env.POLYMARKET_SIGNATURE_TYPE;
+        if (envSigType !== undefined && envSigType !== '') {
+            const parsed = parseInt(envSigType, 10);
+            if (!isNaN(parsed)) {
+                this.signatureType = parsed;
+                logger.info(`Using Signature Type: ${this.signatureType}`);
+            } else {
+                this.signatureType = this.funderAddress ? SignatureType.POLY_GNOSIS_SAFE : SignatureType.EOA;
+                logger.warn(`Invalid POLYMARKET_SIGNATURE_TYPE: ${envSigType}. Defaulting to ${this.signatureType}.`);
+            }
+        } else {
+            this.signatureType = this.funderAddress ? SignatureType.POLY_GNOSIS_SAFE : SignatureType.EOA;
+        }
+
+        // Initial client init (ALWAYS EOA for key derivation)
         this.client = new ClobClient(
             'https://clob.polymarket.com',
             chainId,
-            this.signer
+            this.signer,
         );
-        this.notifier = notifier;
     }
 
     private async ensureApiKeys() {
@@ -38,17 +65,28 @@ export class PolymarketExecutor implements Executor<OrderParams> {
                 };
             } else {
                 logger.info('Deriving API Keys...');
-                this.creds = await this.client.createOrDeriveApiKey();
+                try {
+                    this.creds = await this.client.createOrDeriveApiKey();
+                    if (!this.creds) {
+                        throw new Error('Derived credentials are null or undefined.');
+                    }
+                    logger.info(`Derived Creds: Key=${this.creds.key.substring(0, 8)}...`);
+                } catch (error: any) {
+                    logger.error(`Failed to derive API keys: ${error.message}`);
+                    throw new Error(`Failed to derive API keys: ${error.message}`);
+                }
             }
 
-            // Re-initialize client with creds
+            // Re-initialize client with creds AND funder config (if present)
             this.client = new ClobClient(
                 'https://clob.polymarket.com',
                 137,
                 this.signer,
-                this.creds
+                this.creds,
+                this.signatureType,
+                this.funderAddress
             );
-            logger.info('Client updated with API Credentials.');
+            logger.info('Client updated with API Credentials and Funder Config.');
         }
     }
 
@@ -61,25 +99,25 @@ export class PolymarketExecutor implements Executor<OrderParams> {
             await this.ensureApiKeys();
 
             let resp;
+            const commonOptions = {
+                tokenID: order.tokenId,
+                price: order.price,
+                side: order.side === 'BUY' ? Side.BUY : Side.SELL,
+                feeRateBps: 0,
+            };
+
             if (order.type === 'MARKET') {
                 // Market Order
                 resp = await this.client.createAndPostMarketOrder({
-                    tokenID: order.tokenId,
+                    ...commonOptions,
                     amount: order.size,
-                    side: order.side === 'BUY' ? Side.BUY : Side.SELL,
-                    feeRateBps: 0,
-                    nonce: Date.now(),
-                });
+                } as any);
             } else {
                 // Limit Order
                 resp = await this.client.createAndPostOrder({
-                    tokenID: order.tokenId,
-                    price: order.price,
-                    side: order.side === 'BUY' ? Side.BUY : Side.SELL,
+                    ...commonOptions,
                     size: order.size,
-                    feeRateBps: 0,
-                    nonce: Date.now(),
-                });
+                } as any);
             }
 
             // Validate Response based on Polymarket API Docs
@@ -98,7 +136,7 @@ export class PolymarketExecutor implements Executor<OrderParams> {
 
             const successMsg = `✅ *Order Placed Successfully!*
 
-🆔 *ID:* \`${response.orderId}\`
+🆔 *ID:* \`${response.orderID}\`
 📊 *Status:* ${response.status}
 🪙 *Token:* \`${order.tokenId}\`
 
@@ -111,8 +149,15 @@ export class PolymarketExecutor implements Executor<OrderParams> {
 
             return true;
         } catch (error: any) {
+            const errorMsg = error.message || JSON.stringify(error);
             logger.error('Failed to execute order:', error);
-            if (this.notifier) await this.notifier.notify(`Failed to execute order: ${error.message || error}`);
+
+            // Check for Cloudflare 403
+            if (errorMsg.includes('Cloudflare') || errorMsg.includes('403 Forbidden')) {
+                logger.warn('⚠️ Potential Cloudflare Block Detected! The bot might be blocked by Polymarket security.');
+            }
+
+            if (this.notifier) await this.notifier.notify(`Failed to execute order: ${errorMsg}`);
         }
         return false;
     }
