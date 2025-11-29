@@ -126,3 +126,24 @@ npx ts-node src/scripts/test_google_trends.ts
 ```
 
 这将生成 `google_trends_structure.json` 文件，包含所有解析的数据。
+
+
+# 使用 puppeteer 抓取网页报错，好像缺少系统lib
+root@VM-0-7-debian:~/polybot# npx ts-node src/scripts/test_google_trends.ts 
+[2025-11-29T16:23:02.260Z] [INFO] Starting Google Trends Test...
+[2025-11-29T16:23:02.262Z] [INFO] [GoogleTrendsMonitor] Launching Puppeteer...
+[2025-11-29T16:23:02.289Z] [ERROR] Error polling Google Trends: Error: Failed to launch the browser process:  Code: 127
+stderr:
+/root/.cache/puppeteer/chrome/linux-142.0.7444.162/chrome-linux64/chrome: error while loading shared libraries: libglib-2.0.so.0: cannot open shared object file: No such file or directory
+TROUBLESHOOTING: https://pptr.dev/troubleshooting
+    at ChildProcess.onClose (/root/polybot/node_modules/@puppeteer/browsers/src/launch.ts:520:11)
+    at ChildProcess.emit (node:events:520:35)
+    at ChildProcess.emit (node:domain:489:12)
+    at Process.ChildProcess._handle.onexit (node:internal/child_process:294:12)
+[2025-11-29T16:23:02.290Z] [INFO] Poll result (top person): null
+root@VM-0-7-debian:~/polybot#
+
+这个错误是因为 Chrome 浏览器缺少必要的系统库。在 Debian 系统上，你需要安装 Chrome 运行所需的依赖。
+
+# 这个命令会自动安装 Chromium 及其所有依赖
+apt-get install -y chromium chromium-driver

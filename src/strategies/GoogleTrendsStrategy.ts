@@ -4,17 +4,28 @@ import { OrderParams } from '../executors/PolymarketExecutor';
 import { logger } from '../core/logger';
 import { GoogleTrendsData } from '../monitors/GoogleTrendsMonitor';
 
+export type EventSlug = {
+    slug: string;
+    rank: number;
+}
+
 export class GoogleTrendsStrategy implements Strategy<GoogleTrendsData | null> {
     private executor: Executor<OrderParams>;
     private notifier?: Notifier;
     private config: BotConfig;
 
     // Event slugs for different categories
-    private eventSlugMap: { [key: string]: string } = {
-        'Trending > People': '1-searched-person-on-google-this-year',
-        // Add more event slugs as needed for other categories
-        // 'Entertainment > Movies': 'top-movie-2024',
-        // 'Sports > Athletes': 'top-athlete-2024',
+    private eventSlugMap: { [key: string]: EventSlug[] } = {
+        'Trending > People': [
+            { slug: '1-searched-person-on-google-this-year', rank: 1 },
+            { slug: '2-searched-person-on-google-this-year', rank: 2 }
+        ],
+        'Entertainment > Actors': [
+            { slug: '1-searched-actor-on-google-this-year', rank: 1 },
+        ],
+        'Sports > Athletes': [
+            { slug: '1-searched-athlete-on-google-this-year', rank: 1 },
+        ],
     };
 
     private executedTrades: Set<string> = new Set();
@@ -36,45 +47,90 @@ export class GoogleTrendsStrategy implements Strategy<GoogleTrendsData | null> {
 
         logger.info(`[GoogleTrendsStrategy] Evaluating ${data.sections.length} sections...`);
 
-        let anyTradeExecuted = false;
+        // Collect all trade tasks
+        const tradeTasks: Promise<{ success: boolean; categoryKey: string; eventSlug: string; itemName: string }>[] = [];
 
         // Iterate through all sections and categories
         for (const section of data.sections) {
             for (const category of section.categories) {
                 const categoryKey = `${section.section} > ${category.category}`;
 
-                // Check if we have a Polymarket event for this category
-                const eventSlug = this.eventSlugMap[categoryKey];
-                if (!eventSlug) {
-                    logger.debug(`[GoogleTrendsStrategy] No event mapping for ${categoryKey}, skipping.`);
-                    continue;
-                }
-
-                // Check if we already executed a trade for this category
-                if (this.executedTrades.has(categoryKey)) {
-                    logger.info(`[GoogleTrendsStrategy] Already executed trade for ${categoryKey}, skipping.`);
-                    continue;
-                }
-
-                // Get the top item
-                if (category.items.length === 0) {
+                // Get the item
+                if (!category.items || category.items.length === 0) {
                     logger.warn(`[GoogleTrendsStrategy] No items in ${categoryKey}`);
                     continue;
                 }
 
-                const topItem = category.items[0];
-                logger.info(`[GoogleTrendsStrategy] ${categoryKey} #1: ${topItem.name}`);
+                // Check if we have a Polymarket event for this category
+                const eventSlugs = this.eventSlugMap[categoryKey];
+                if (!eventSlugs || eventSlugs.length === 0) {
+                    logger.debug(`[GoogleTrendsStrategy] No event mapping for ${categoryKey}, skipping.`);
+                    continue;
+                }
 
-                // Try to execute trade for this item
-                const success = await this.executeTrade(categoryKey, eventSlug, topItem.name);
-                if (success) {
-                    this.executedTrades.add(categoryKey);
-                    anyTradeExecuted = true;
+                // Create parallel trade tasks for all event slugs
+                for (const eventSlug of eventSlugs) {
+                    if (this.executedTrades.has(eventSlug.slug)) {
+                        logger.info(`[GoogleTrendsStrategy] Already executed trade for ${eventSlug.slug}, skipping.`);
+                        continue;
+                    }
+
+                    // Get the rank - 1 item
+                    const item = category.items[eventSlug.rank - 1];
+                    if (!item) {
+                        logger.warn(`[GoogleTrendsStrategy] No item found at rank ${eventSlug.rank} for ${categoryKey}`);
+                        continue;
+                    }
+
+                    logger.info(`[GoogleTrendsStrategy] Queueing trade for ${categoryKey} #${eventSlug.rank}: ${item.name}`);
+
+                    // Add trade task to parallel execution list
+                    tradeTasks.push(
+                        this.executeTrade(categoryKey, eventSlug.slug, item.name).then(success => ({
+                            success,
+                            categoryKey,
+                            eventSlug: eventSlug.slug,
+                            itemName: item.name
+                        }))
+                    );
                 }
             }
         }
 
-        return anyTradeExecuted;
+        if (tradeTasks.length === 0) {
+            logger.info('[GoogleTrendsStrategy] No trades to execute.');
+            return false;
+        }
+
+        logger.info(`[GoogleTrendsStrategy] Executing ${tradeTasks.length} trades in parallel...`);
+
+        // Execute all trades in parallel
+        const results = await Promise.all(tradeTasks);
+
+        // Check if all trades succeeded
+        const allSucceeded = results.every(r => r.success);
+        const successCount = results.filter(r => r.success).length;
+
+        logger.info(`[GoogleTrendsStrategy] Trade results: ${successCount}/${results.length} succeeded`);
+
+        // Mark successful trades as executed
+        for (const result of results) {
+            if (result.success) {
+                this.executedTrades.add(result.eventSlug);
+                logger.info(`[GoogleTrendsStrategy] ✓ Trade successful: ${result.itemName} (${result.categoryKey})`);
+            } else {
+                logger.error(`[GoogleTrendsStrategy] ✗ Trade failed: ${result.itemName} (${result.categoryKey})`);
+            }
+        }
+
+        // Only return true if ALL trades succeeded
+        if (allSucceeded) {
+            logger.info('[GoogleTrendsStrategy] ✓ All trades executed successfully!');
+        } else {
+            logger.warn('[GoogleTrendsStrategy] ✗ Some trades failed. evaluate() returning false.');
+        }
+
+        return allSucceeded;
     }
 
     private async executeTrade(categoryKey: string, eventSlug: string, itemName: string): Promise<boolean> {
@@ -94,8 +150,12 @@ export class GoogleTrendsStrategy implements Strategy<GoogleTrendsData | null> {
             });
 
             if (!market) {
-                logger.warn(`[GoogleTrendsStrategy] No market found for "${itemName}" in event ${eventSlug}`);
-                return false;
+                logger.warn(`[GoogleTrendsStrategy] No market found for "${itemName}" in event ${eventSlug}, skip trade`);
+                if (this.notifier) {
+                    await this.notifier.notify(`[GoogleTrendsStrategy] No market found for "${itemName}" in event ${eventSlug}, skip trade`);
+                }
+                //no market found , return true avoid trade of slug always executed     
+                return true;
             }
 
             logger.info(`[GoogleTrendsStrategy] Found market for ${itemName}: ${market.slug}`);
@@ -131,7 +191,7 @@ export class GoogleTrendsStrategy implements Strategy<GoogleTrendsData | null> {
 
             if (success) {
                 if (this.notifier) {
-                    await this.notifier.notify(`Sniper Triggered! Bought YES for ${itemName} (${categoryKey} #1)`);
+                    await this.notifier.notify(`Sniper Triggered! Bought YES for ${itemName} (${categoryKey})`);
                 }
                 return true;
             }
