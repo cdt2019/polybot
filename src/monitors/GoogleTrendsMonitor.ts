@@ -55,6 +55,13 @@ export class GoogleTrendsMonitor implements Monitor<GoogleTrendsData | null> {
             let response = await page.goto(this.url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
             // Check if redirected to 2024 or 404
+            if (response?.status() !== 200) {
+                logger.warn('[GoogleTrendsMonitor] Navigation failed with status: ' + response?.status());
+                return null;
+            } else {
+                this.notifier?.notify(`Navigated to ${this.url} with status: ` + response?.status());
+            }
+
             const currentUrl = page.url();
             if (currentUrl.includes('2024') && !this.allow2024) {
                 logger.info('[GoogleTrendsMonitor] Redirected to 2024 page, 2025 not released yet.');
