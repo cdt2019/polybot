@@ -28,63 +28,70 @@ export class Gemini3HLEStrategy implements Strategy<HLEData | null> {
 
         // console.log(`[Gemini3HLEStrategy] Found model: ${data.modelName}, Score: ${data.score}`);
 
-        if (data.score > this.targetScore) {
-            logger.info(`[Gemini3HLEStrategy] Score ${data.score} > ${this.targetScore}. Triggering buy!`);
+        // Determine which market to buy based on score
+        let targetMarket = '';
+        let targetThreshold = 0;
 
-            // Fetch market details to get token ID
-            // We need the "40%+" market.
-            // The slug provided by user is for the event, which might contain multiple markets.
-            // We need to find the specific market for > 40%.
-
-            const market = await PolyMarketService.getMarketForEvent(this.eventSlug, '40%');
-
-            if (market && market.clobTokenIds && market.clobTokenIds.length >= 2) {
-                // Assuming Yes is index 0, No is index 1. 
-                // ALWAYS VERIFY THIS IN PRODUCTION. Usually Yes is 0.
-                const tokenId = market.clobTokenIds[0];
-
-                // Check Order Book
-                const orderBook = await PolyMarketService.getOrderBook(tokenId);
-                if (orderBook && orderBook.asks.length > 0) {
-                    // Asks are sorted by price ascending usually, but let's be safe
-                    // Price is string in API response
-                    const lowestAsk = orderBook.asks.reduce((min, ask) => {
-                        const price = parseFloat(ask.price);
-                        return price < min ? price : min;
-                    }, 1.0);
-
-                    logger.info(`[Gemini3HLEStrategy] Lowest Ask: ${lowestAsk}`);
-
-                    const maxPrice = this.config.orderPrice || 0.9;
-                    if (lowestAsk < maxPrice) {
-                        logger.info(`[Gemini3HLEStrategy] Lowest ask ${lowestAsk} < ${maxPrice}. Executing BUY.`);
-
-                        // MARKET BUY
-                        const orderSize = this.config.orderSize || 10;
-                        // const orderType = this.config.orderType || 'MARKET';
-                        // const timeInForce = this.config.timeInForce ? orderType == "LIMIT" ? "GTC" : "FAK" : "FAK";
-
-                        const success = await this.executor.execute({
-                            tokenId: tokenId,
-                            price: maxPrice,
-                            size: orderSize,
-                            side: 'BUY',
-                            type: 'MARKET',
-                            timeInForce: "FAK"
-                        } as any);
-                        this.hasExecuted = success;
-                        return success;
-                    } else {
-                        logger.info(`[Gemini3HLEStrategy] Lowest ask ${lowestAsk} >= ${maxPrice}. Waiting for better price.`);
-                    }
-                } else {
-                    logger.warn('[Gemini3HLEStrategy] Order book empty or no asks.');
-                }
-            } else {
-                logger.error('[Gemini3HLEStrategy] Could not find market or token IDs for 40%+');
-            }
+        if (data.score >= 45) {
+            targetMarket = '45%';
+            targetThreshold = 45;
+            logger.info(`[Gemini3HLEStrategy] Score ${data.score} >= 45. Targeting 45% market!`);
+        } else if (data.score > this.targetScore) {
+            targetMarket = '40%+';
+            targetThreshold = this.targetScore;
+            logger.info(`[Gemini3HLEStrategy] Score ${data.score} > ${this.targetScore}. Targeting 40%+ market!`);
         } else {
             logger.info(`[Gemini3HLEStrategy] Score ${data.score} <= ${this.targetScore}. Not triggering buy.`);
+            return false;
+        }
+
+        // Fetch market details to get token ID
+        const market = await PolyMarketService.getMarketForEvent(this.eventSlug, targetMarket);
+
+        if (market && market.clobTokenIds && market.clobTokenIds.length >= 2) {
+            // Assuming Yes is index 0, No is index 1. 
+            // ALWAYS VERIFY THIS IN PRODUCTION. Usually Yes is 0.
+            const tokenId = market.clobTokenIds[0];
+
+            // Check Order Book
+            const orderBook = await PolyMarketService.getOrderBook(tokenId);
+            if (orderBook && orderBook.asks.length > 0) {
+                // Asks are sorted by price ascending usually, but let's be safe
+                // Price is string in API response
+                const lowestAsk = orderBook.asks.reduce((min, ask) => {
+                    const price = parseFloat(ask.price);
+                    return price < min ? price : min;
+                }, 1.0);
+
+                logger.info(`[Gemini3HLEStrategy] ${targetMarket} market - Lowest Ask: ${lowestAsk}`);
+
+                const maxPrice = this.config.orderPrice || 0.9;
+                if (lowestAsk < maxPrice) {
+                    logger.info(`[Gemini3HLEStrategy] Lowest ask ${lowestAsk} < ${maxPrice}. Executing BUY on ${targetMarket} market.`);
+
+                    // MARKET BUY
+                    const orderSize = this.config.orderSize || 10;
+                    // const orderType = this.config.orderType || 'MARKET';
+                    // const timeInForce = this.config.timeInForce ? orderType == "LIMIT" ? "GTC" : "FAK" : "FAK";
+
+                    const success = await this.executor.execute({
+                        tokenId: tokenId,
+                        price: maxPrice,
+                        size: orderSize,
+                        side: 'BUY',
+                        type: 'MARKET',
+                        timeInForce: "FAK"
+                    } as any);
+                    this.hasExecuted = success;
+                    return success;
+                } else {
+                    logger.info(`[Gemini3HLEStrategy] Lowest ask ${lowestAsk} >= ${maxPrice}. Waiting for better price.`);
+                }
+            } else {
+                logger.warn(`[Gemini3HLEStrategy] Order book empty or no asks for ${targetMarket} market.`);
+            }
+        } else {
+            logger.error(`[Gemini3HLEStrategy] Could not find market or token IDs for ${targetMarket}`);
         }
 
         return false;
