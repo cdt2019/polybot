@@ -6,7 +6,7 @@ export class Bot<T> {
     private config: BotConfig;
     private notifier?: Notifier;
     private isRunning: boolean = false;
-    private lastData: T | undefined;
+    //private lastData: T | undefined;
 
     constructor(monitor: Monitor<T>, strategy: Strategy<T>, config: BotConfig, notifier?: Notifier) {
         this.monitor = monitor;
@@ -34,10 +34,10 @@ export class Bot<T> {
                 const data = await this.monitor.poll();
 
                 // Check for data change
-                if (this.notifier && JSON.stringify(data) !== JSON.stringify(this.lastData)) {
-                    await this.notifier.notify(`Monitor data changed: ${JSON.stringify(data)}`);
-                }
-                this.lastData = data;
+                // if (this.notifier && JSON.stringify(data) !== JSON.stringify(this.lastData)) {
+                //     await this.notifier.notify(`Monitor data changed: ${JSON.stringify(data)}`);
+                // }
+                // this.lastData = data;
 
                 const shouldStop = await this.strategy.evaluate(data);
                 if (shouldStop) {
