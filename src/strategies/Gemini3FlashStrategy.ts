@@ -40,8 +40,9 @@ export class Gemini3FlashStrategy implements Strategy<boolean> {
         let actionTaken = false;
 
         const targets = [
-            { title: 'November 30', deadline: new Date('2025-11-30T23:59:00-05:00') },
             { title: 'December 15', deadline: new Date('2025-12-15T23:59:00-05:00') },
+            { title: 'December 18', deadline: new Date('2025-12-18T23:59:00-05:00') },
+            { title: 'December 22', deadline: new Date('2025-12-22T23:59:00-05:00') },
             { title: 'December 31', deadline: new Date('2025-12-31T23:59:00-05:00') }
         ];
 
@@ -92,7 +93,6 @@ export class Gemini3FlashStrategy implements Strategy<boolean> {
                     const orderSize = this.config.orderSize || 10;
                     const orderPrice = 0.90; // Limit price to ensure we don't pay more than 0.90
 
-                    // Uncomment for real execution
                     const success = await this.executor.execute({
                         tokenId: tokenId,
                         price: orderPrice,
