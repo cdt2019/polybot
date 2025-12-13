@@ -1,4 +1,4 @@
-import { ClobClient, Side } from '@polymarket/clob-client';
+import { ClobClient, OrderType, Side } from '@polymarket/clob-client';
 import { SignatureType } from "@polymarket/order-utils"
 
 import { ethers } from 'ethers';
@@ -11,6 +11,8 @@ export interface OrderParams {
     size: number;
     side: 'BUY' | 'SELL';
     type: 'LIMIT' | 'MARKET';
+    expiration?: number;
+    timeInForce?: 'GTC' | 'GTD' | 'FOK' | 'FAK';
 }
 
 export class PolymarketExecutor implements Executor<OrderParams> {
@@ -108,16 +110,19 @@ export class PolymarketExecutor implements Executor<OrderParams> {
 
             if (order.type === 'MARKET') {
                 // Market Order
+                const orderType = order.timeInForce == 'FAK' ? OrderType.FAK : OrderType.FOK;
                 resp = await this.client.createAndPostMarketOrder({
                     ...commonOptions,
                     amount: order.size,
-                } as any);
+                } as any, undefined, orderType);
             } else {
                 // Limit Order
+                const orderType = order.timeInForce == 'GTD' ? OrderType.GTD : OrderType.GTC;
                 resp = await this.client.createAndPostOrder({
                     ...commonOptions,
                     size: order.size,
-                } as any);
+                    expiration: order.expiration || 0,
+                } as any, undefined, orderType);
             }
 
             // Validate Response based on Polymarket API Docs

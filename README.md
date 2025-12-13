@@ -103,6 +103,11 @@ To start the bot with Gemini 3.0 Flash Monitor and Strategy:
 node dist/index.js --monitor=Gemini3FlashMonitor --strategy=Gemini3FlashStrategy
 ```
 
+To start the bot with LiveBench Coding Monitor and Strategy:
+```bash
+node dist/index.js --monitor=LiveBenchCodingMonitor --strategy=LiveBenchCodingStrategy
+```
+
 ### Command-Line Arguments / 命令行参数
 
 **Required / 必需:**
