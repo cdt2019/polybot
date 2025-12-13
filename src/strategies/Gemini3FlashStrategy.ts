@@ -87,25 +87,26 @@ export class Gemini3FlashStrategy implements Strategy<boolean> {
 
                 logger.info(`[Gemini3FlashStrategy] ${target.title} - Lowest Ask: ${lowestAsk}`);
 
-                if (lowestAsk < 0.90) {
-                    logger.info(`[Gemini3FlashStrategy] Price ${lowestAsk} < 0.90 for ${target.title}. Executing BUY.`);
+                const maxPrice = this.config.orderPrice || 0.9; // Limit price to ensure we don't pay more than 0.90
+                if (lowestAsk < maxPrice) {
+                    logger.info(`[Gemini3FlashStrategy] Price ${lowestAsk} < ${maxPrice} for ${target.title}. Executing BUY.`);
 
-                    const orderSize = this.config.orderSize || 10;
-                    const orderPrice = 0.90; // Limit price to ensure we don't pay more than 0.90
+                    const buyAmount = this.config.orderSize || 10;
 
                     const success = await this.executor.execute({
                         tokenId: tokenId,
-                        price: orderPrice,
-                        size: orderSize,
+                        price: maxPrice,
+                        size: buyAmount,
                         side: 'BUY',
-                        type: 'LIMIT' // Use LIMIT to be safe
+                        type: 'MARKET',
+                        timeInForce: 'FAK',
                     });
 
                     if (success) {
                         this.executedMarkets.add(market.slug);
                         actionTaken = true;
                         if (this.notifier) {
-                            await this.notifier.notify(`Bought Yes for ${target.title} at < 0.90`);
+                            await this.notifier.notify(`Bought Yes for ${target.title} at ${maxPrice}`);
                         }
                         // Optimization: Buy only one (the earliest/best) market and stop.
                         // Since targets are sorted by date (implicitly or explicitly), the first one we buy is the best.
@@ -113,7 +114,7 @@ export class Gemini3FlashStrategy implements Strategy<boolean> {
                         break;
                     }
                 } else {
-                    logger.info(`[Gemini3FlashStrategy] Price ${lowestAsk} >= 0.90 for ${target.title}. Skipping.`);
+                    logger.info(`[Gemini3FlashStrategy] Price ${lowestAsk} >= ${maxPrice} for ${target.title}. Skipping.`);
                 }
             } else {
                 logger.warn(`[Gemini3FlashStrategy] No asks found for ${target.title}`);

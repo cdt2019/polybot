@@ -36,6 +36,7 @@ export interface BotConfig {
     orderSize?: number;
     orderType?: 'LIMIT' | 'MARKET';
     orderPrice?: number;
+    timeInForce?: 'GTD' | 'GTC' | 'FOK' | 'FAK';
     [key: string]: any; // Allow other dynamic props if needed
 }
 

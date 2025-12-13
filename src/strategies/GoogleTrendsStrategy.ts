@@ -171,7 +171,7 @@ export class GoogleTrendsStrategy implements Strategy<GoogleTrendsData | null> {
 
             // Check order book
             const orderBook = await PolyMarketService.getOrderBook(tokenId);
-            let price = 0.9; // Default cap
+            let maxPrice = this.config.orderPrice || 0.9; // Default cap
             if (orderBook && orderBook.asks.length > 0) {
                 const lowestAsk = parseFloat(orderBook.asks[0].price);
                 logger.info(`[GoogleTrendsStrategy] Lowest ask for ${itemName}: ${lowestAsk}`);
@@ -183,10 +183,11 @@ export class GoogleTrendsStrategy implements Strategy<GoogleTrendsData | null> {
 
             const success = await this.executor.execute({
                 tokenId: tokenId,
-                price: price,
+                price: maxPrice,
                 size: orderSize,
                 side: 'BUY',
-                type: 'LIMIT'
+                type: 'MARKET',
+                timeInForce: 'FAK',
             });
 
             if (success) {

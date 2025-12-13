@@ -188,15 +188,14 @@ export class LiveBenchCodingStrategy implements Strategy<LiveBenchCodingData[]> 
         logger.info(`[LiveBenchCodingStrategy] ${company} Lowest Ask: ${lowestAsk}`);
 
         // buy max price
-        const maxPrice = 0.90;
-
+        const maxPrice = this.config.orderPrice || 0.9;
         if (lowestAsk < maxPrice) {
-            const investmentAmount = this.config.orderSize || 10; //buy $ amount
-            logger.info(`[LiveBenchCodingStrategy] BUY: ${company} @ ${maxPrice} (max price) @ MARKET. Invested for ~$${investmentAmount}.`);
+            const buyAmount = this.config.orderSize || 10; //buy $ amount
+            logger.info(`[LiveBenchCodingStrategy] MARKET BUY: ${company} @ ${maxPrice}. Buying ~$${buyAmount}.`);
             const success = await this.executor.execute({
                 tokenId: tokenId,
                 price: maxPrice,
-                size: investmentAmount,
+                size: buyAmount,
                 side: 'BUY',
                 type: 'MARKET',
                 timeInForce: 'FAK',
@@ -204,7 +203,7 @@ export class LiveBenchCodingStrategy implements Strategy<LiveBenchCodingData[]> 
 
             if (success) {
                 if (this.notifier) {
-                    await this.notifier.notify(`[LiveBenchCodingStrategy] ✅ BUY: ${company} @ ${maxPrice} (max price) @ MARKET. Invested for ~$${investmentAmount}.`);
+                    await this.notifier.notify(`[LiveBenchCodingStrategy] ✅ MARKET BUY: ${company} @ ${maxPrice}. Buyed ~$${buyAmount}.`);
                 }
                 return true;
             }

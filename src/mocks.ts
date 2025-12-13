@@ -41,7 +41,9 @@ export class MockStrategy implements Strategy<number> {
                 tokenId: 'mock-token-id',
                 price: 0.5,
                 size: 10,
-                side: 'BUY'
+                side: 'BUY',
+                type: 'LIMIT',
+                timeInForce: 'GTC'
             } as OrderParams);
             return true;
         }

@@ -132,8 +132,7 @@ async function main() {
     }
 
     // Initialize Executor
-    let privateKey = await loadPrivateKey();
-    const executor = new PolymarketExecutor(privateKey, notifier);
+    const executor = new PolymarketExecutor(await loadPrivateKey(), notifier);
 
     // Validate required arguments
     if (!args['monitor'] || !args['strategy']) {
@@ -141,6 +140,11 @@ async function main() {
         logger.error('Example: node dist/index.js --monitor=HLEMonitor --strategy=Gemini3HLEStrategy');
         process.exit(1);
     }
+
+    // Parse Interval (in seconds)
+    const intervalSeconds = parseInt(args['interval'] || process.env.MONITOR_INTERVAL || '60', 10);
+    const intervalMs = intervalSeconds * 1000;
+    logger.info(`Bot Interval: ${intervalSeconds}s (${intervalMs}ms)`);
 
     // Dynamic Monitor Loading
     const monitorPath = args['monitor'];
@@ -151,17 +155,17 @@ async function main() {
     }
     logger.info(`Initialized Monitor from ${monitorPath}`);
 
-    // Parse Interval (in seconds)
-    const intervalSeconds = parseInt(args['interval'] || process.env.MONITOR_INTERVAL || '60', 10);
-    const intervalMs = intervalSeconds * 1000;
-    logger.info(`Bot Interval: ${intervalSeconds}s (${intervalMs}ms)`);
-
     // Create BotConfig
     const botConfig: BotConfig = {
         intervalMs: intervalMs,
-        orderSize: args['orderSize'] ? parseFloat(args['orderSize']) : undefined,
-        orderType: args['orderType'] ? (args['orderType'].toUpperCase() as 'LIMIT' | 'MARKET') : undefined,
-        orderPrice: args['orderPrice'] ? parseFloat(args['orderPrice']) : undefined,
+        orderSize: (args['orderSize'] || process.env.ORDER_SIZE) ?
+            parseFloat(args['orderSize'] || process.env.ORDER_SIZE || "10") : undefined,
+        orderType: (args['orderType'] || process.env.ORDER_TYPE) ?
+            ((args['orderType'] || process.env.ORDER_TYPE || "MARKET").toUpperCase() as 'LIMIT' | 'MARKET') : undefined,
+        orderPrice: (args['orderPrice'] || process.env.ORDER_PRICE) ?
+            parseFloat(args['orderPrice'] || process.env.ORDER_PRICE || "0.9") : undefined,
+        timeInForce: (args['timeInForce'] || process.env.TIME_IN_FORCE) ?
+            ((args['timeInForce'] || process.env.TIME_IN_FORCE || "FAK").toUpperCase() as 'GTD' | 'GTC' | 'FOK' | 'FAK') : undefined,
         ...args // Spread other args if needed
     };
 
@@ -174,6 +178,9 @@ async function main() {
         strategy.setNotifier(notifier);
     }
     logger.info(`Initialized Strategy from ${strategyPath}`);
+
+    // Pring bot running config
+    logger.info(`Bot Config: ${JSON.stringify(botConfig, null, 2)}`);
 
     // Initialize Bot Engine
     const bot = new Bot(monitor, strategy, botConfig, notifier);

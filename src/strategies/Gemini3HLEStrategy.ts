@@ -55,25 +55,27 @@ export class Gemini3HLEStrategy implements Strategy<HLEData | null> {
 
                     logger.info(`[Gemini3HLEStrategy] Lowest Ask: ${lowestAsk}`);
 
-                    if (lowestAsk < 0.90) {
-                        logger.info(`[Gemini3HLEStrategy] Lowest ask ${lowestAsk} < 0.90. Executing BUY.`);
+                    const maxPrice = this.config.orderPrice || 0.9;
+                    if (lowestAsk < maxPrice) {
+                        logger.info(`[Gemini3HLEStrategy] Lowest ask ${lowestAsk} < ${maxPrice}. Executing BUY.`);
 
                         // MARKET BUY
-                        const orderSize = this.config.orderSize || parseFloat(process.env.ORDER_SIZE || '10');
-                        const orderType = (this.config.orderType || process.env.ORDER_TYPE || 'MARKET').toUpperCase() as 'LIMIT' | 'MARKET';
-                        const orderPrice = this.config.orderPrice !== undefined ? this.config.orderPrice : parseFloat(process.env.ORDER_PRICE || '0');
+                        const orderSize = this.config.orderSize || 10;
+                        // const orderType = this.config.orderType || 'MARKET';
+                        // const timeInForce = this.config.timeInForce ? orderType == "LIMIT" ? "GTC" : "FAK" : "FAK";
 
                         const success = await this.executor.execute({
                             tokenId: tokenId,
-                            price: orderPrice,
+                            price: maxPrice,
                             size: orderSize,
                             side: 'BUY',
-                            type: orderType
-                        });
+                            type: 'MARKET',
+                            timeInForce: "FAK"
+                        } as any);
                         this.hasExecuted = success;
                         return success;
                     } else {
-                        logger.info(`[Gemini3HLEStrategy] Lowest ask ${lowestAsk} >= 0.90. Waiting for better price.`);
+                        logger.info(`[Gemini3HLEStrategy] Lowest ask ${lowestAsk} >= ${maxPrice}. Waiting for better price.`);
                     }
                 } else {
                     logger.warn('[Gemini3HLEStrategy] Order book empty or no asks.');
