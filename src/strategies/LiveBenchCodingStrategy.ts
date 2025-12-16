@@ -29,8 +29,8 @@ export class LiveBenchCodingStrategy implements Strategy<LiveBenchCodingData[]> 
     // Significant patterns (Regex) for "Defense" buy triggers
     // Matches versions like gpt-5.2, gemini-3, etc.
     private significantPatterns: RegExp[] = [
-        /gpt-5.2-codex/i,
-        /gemini-3(.0)?-flash/i,
+        ///gpt-5.2-codex/i,
+        ///gemini-3(.0)?-flash/i,
         // /grok-4-2/i,
     ];
 

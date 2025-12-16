@@ -40,7 +40,9 @@ export class Gemini3FlashStrategy implements Strategy<boolean> {
         let actionTaken = false;
 
         const targets = [
-            { title: 'December 15', deadline: new Date('2025-12-15T23:59:00-05:00') },
+            //{ title: 'December 15', deadline: new Date('2025-12-15T23:59:00-05:00') },
+            { title: 'December 16', deadline: new Date('2025-12-16T23:59:00-05:00') },
+            { title: 'December 17', deadline: new Date('2025-12-17T23:59:00-05:00') },
             { title: 'December 18', deadline: new Date('2025-12-18T23:59:00-05:00') },
             { title: 'December 22', deadline: new Date('2025-12-22T23:59:00-05:00') },
             { title: 'December 31', deadline: new Date('2025-12-31T23:59:00-05:00') }
