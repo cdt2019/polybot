@@ -45,7 +45,7 @@ export class LMArenaTextMonitor implements Monitor<LMArenaResult> {
 
             try {
                 // Wait specifically for the table, increase timeout slightly
-                await page.waitForSelector('table tbody tr', { timeout: 20000 });
+                await page.waitForSelector('table tbody tr', { timeout: 60000 });
             } catch (e) {
                 logger.warn('[LMArenaTextMonitor] Timeout waiting for table rows, proceeding anyway...');
             }
