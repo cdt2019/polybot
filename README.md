@@ -108,10 +108,20 @@ To start the bot with LiveBench Coding Monitor and Strategy:
 node dist/index.js --monitor=LiveBenchCodingMonitor --strategy=LiveBenchCodingStrategy
 ```
 
-To start the bot with gemini-3 LMArena text score Monitor and Strategy:
+To start the bot with gemini-3 LMArena text with no style control on score Monitor and Strategy:
 ```bash
-node dist/index.js --monitor=LMArenaTextNotStyleMonitor --strategy=Gemini3LMArenaScoreStrategy
+node dist/index.js --monitor=LMArenaTextNoStyleMonitor --strategy=Gemini3LMArenaScoreStrategy
 ```
+
+To start the bot with LMArena text Monitor with no style control on and Strategy:
+```bash
+node dist/index.js --monitor=LMArenaTextNoStyleMonitor --strategy=LMArenaTextNoStyleStrategy
+```
+
+To start the bot with LMArena text Monitor with style control on and Strategy:
+```bash
+node dist/index.js --monitor=LMArenaTextMonitor --strategy=LMArenaTextStrategy
+``` 
 
 ### Command-Line Arguments / 命令行参数
 

@@ -1,10 +1,10 @@
 import { HLEMonitor } from "../monitors/HLEMonitor";
 import { LiveBenchCodingMonitor } from "../monitors/LiveBenchCodingMonitor";
 import { LMArenaTextMonitor } from "../monitors/LMArenaTextMonitor";
-import { LMArenaTextNotStyleMonitor } from "../monitors/LMArenaTextNotStyleMonitor";
+import { LMArenaTextNoStyleMonitor } from "../monitors/LMArenaTextNoStyleMonitor";
 
 async function main() {
-    const monitor = new LMArenaTextNotStyleMonitor();
+    const monitor = new LMArenaTextNoStyleMonitor();
     const data = await monitor.poll();
     console.log(JSON.stringify(data, null, 2));
     process.exit(0); // Force exit to prevent Puppeteer lingering
