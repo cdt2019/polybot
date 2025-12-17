@@ -19,7 +19,7 @@ export class LMArenaTextStrategy extends LMArenaBaseStrategy {
     }
 
     getStrategyName(): string {
-        return 'LMArenaStyleControlOnStrategy';
+        return 'LMArenaTextStrategy';
     }
 
     getLeaderboardType(): string {
