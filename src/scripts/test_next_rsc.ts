@@ -8,7 +8,8 @@ async function main() {
 
 
     const html = await axios.get(
-        'https://lmarena.ai/leaderboard/text/overall-no-style-control',
+        // 'https://lmarena.ai/leaderboard/text/overall-no-style-control',
+        'https://lmarena.ai/leaderboard/text/overall',
         {
             headers: {
                 'user-agent':
@@ -34,7 +35,11 @@ async function main() {
             payloads.push(decoded);
         }
     }
-    const leaderboard = payloads.filter(p => p.includes('"leaderboardSlug":"overall-no-style-control"'));
+
+    const leaderboard = payloads.filter(p =>
+        p.includes('"leaderboardSlug":"overall-no-style-control"')
+        || p.includes('"leaderboardSlug":"overall"')
+    );
     const node = parseFlightNode(leaderboard[0]);
     console.log(node)
     //console.log(JSON.stringify(node?.leaderboard, null, 2))

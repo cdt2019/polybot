@@ -69,6 +69,7 @@ export class LMArenaTextMonitor implements Monitor<LMArenaResult> {
     extractLeaderboard(payloads: string[]): LMArenaResult | null {
         const hit = payloads.find(p =>
             p.includes('"leaderboardSlug":"overall-no-style-control"')
+            || p.includes('"leaderboardSlug":"overall"')
         );
         if (!hit) return null;
 
