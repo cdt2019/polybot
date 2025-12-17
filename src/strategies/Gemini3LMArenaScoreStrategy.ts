@@ -23,14 +23,14 @@ export class Gemini3LMArenaScoreStrategy implements Strategy<LMArenaResult> {
     }
 
     async evaluate(data: LMArenaResult): Promise<boolean> {
-        if (!data || !data.modelRanks || data.modelRanks.length === 0) {
+        if (!data || !data.entries || data.entries.length === 0) {
             logger.info('[Gemini3LMArenaStrategy] No data received from monitor.');
             return false;
         }
 
         // Find all models starting with 'gemini-3' (case-insensitive)
-        const geminiModels = data.modelRanks.filter(m =>
-            m.modelName.toLowerCase().startsWith('gemini-3')
+        const geminiModels = data.entries.filter(m =>
+            m.modelDisplayName.toLowerCase().startsWith('gemini-3')
         );
 
         if (geminiModels.length === 0) {
@@ -40,7 +40,7 @@ export class Gemini3LMArenaScoreStrategy implements Strategy<LMArenaResult> {
 
         // Get the highest score among all Gemini 3 models
         const start = Date.now();
-        const maxScore = Math.max(...geminiModels.map(m => m.score));
+        const maxScore = Math.max(...geminiModels.map(m => m.rating));
         logger.info(`[Gemini3LMArenaStrategy] Found Gemini 3 models. Max Score: ${maxScore}`);
 
         // Define targets based on the user request

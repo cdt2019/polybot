@@ -16,19 +16,23 @@ dotenv.config();
 
 function createMockModelData(
     rank: number,
-    modelName: string,
-    score: number,
+    modelDisplayName: string,
+    rating: number,
     organization?: string
 ): LMArenaData {
     return {
         rank,
-        rankSpread: `${rank} <-> ${rank}`,
-        modelName,
-        score,
-        confidenceInterval: '±5',
+        modelDisplayName,
+        rating,
         votes: 100000 + Math.floor(Math.random() * 50000),
-        organization: organization || inferOrganization(modelName),
-        license: 'Proprietary'
+        modelOrganization: organization || inferOrganization(modelDisplayName),
+        license: 'Proprietary',
+        rankUpper: 0,
+        rankLower: 0,
+        rankStyleControl: 0,
+        ratingUpper: 0,
+        ratingLower: 0,
+        modelUrl: '',
     };
 }
 
@@ -47,14 +51,14 @@ function inferOrganization(modelName: string): string {
 }
 
 function createMockResult(
-    lastUpdated: string,
-    models: LMArenaData[]
+    voteCutoffISOString: string,
+    entries: LMArenaData[]
 ): LMArenaResult {
     return {
-        lastUpdated,
+        voteCutoffISOString,
         totalVotes: 4821345,
-        totalModels: models.length,
-        modelRanks: models
+        totalModels: entries.length,
+        entries: entries
     };
 }
 
@@ -441,10 +445,10 @@ async function testEmptyData() {
 
     console.log('\n--- Test empty modelRanks ---');
     const result2 = await strategy.evaluate({
-        lastUpdated: 'Dec 17, 2025',
+        voteCutoffISOString: 'Dec 17, 2025',
         totalVotes: 0,
         totalModels: 0,
-        modelRanks: []
+        entries: []
     });
     console.log(`Result: ${result2 ? 'Action' : 'No Action'} (Expected: No Action)`);
 }

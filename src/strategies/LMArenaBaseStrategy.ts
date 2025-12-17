@@ -6,9 +6,9 @@ import { LMArenaResult, LMArenaData } from '../monitors/LMArenaTextMonitor';
 
 interface RankState {
     company: string;
-    modelName: string;
-    score: number;
-    organization: string;
+    modelDisplayName: string;
+    rating: number;
+    modelOrganization: string;
 }
 
 interface EventSlugs {
@@ -69,10 +69,6 @@ export abstract class LMArenaBaseStrategy implements Strategy<LMArenaResult> {
     protected lastSeenLeaderboardVersion: string = '';
 
     protected initialized = false;
-
-    // Track consecutive validation failures
-    protected validationFailureCount = 0;
-    protected readonly MAX_VALIDATION_FAILURES = 5;
 
     constructor(executor: Executor<OrderParams>, config: BotConfig) {
         this.executor = executor;
@@ -172,65 +168,6 @@ export abstract class LMArenaBaseStrategy implements Strategy<LMArenaResult> {
     }
 
     /**
-     * Validate lastUpdated format
-     * Expected formats:
-     * - "Dec 17, 2025"
-     * - "December 17, 2025"
-     * - "Jan 1, 2026"
-     * - "2025-12-17" (ISO format)
-     */
-    protected validateLastUpdated(lastUpdated: string): boolean {
-        if (!lastUpdated || typeof lastUpdated !== 'string') {
-            return false;
-        }
-
-        const trimmed = lastUpdated.trim();
-
-        if (trimmed.length === 0) {
-            return false;
-        }
-
-        // Pattern 1: "Dec 17, 2025" or "December 17, 2025"
-        const pattern1 = /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2}, \d{4}$/i;
-
-        // Pattern 2: ISO format "2025-12-17"
-        const pattern2 = /^\d{4}-\d{2}-\d{2}$/;
-
-        // Pattern 3: "17 Dec 2025" or "17 December 2025"
-        const pattern3 = /^\d{1,2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{4}$/i;
-
-        // Pattern 4: "12/17/2025" or "17/12/2025"
-        const pattern4 = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
-
-        const matchesPattern = pattern1.test(trimmed) ||
-            pattern2.test(trimmed) ||
-            pattern3.test(trimmed) ||
-            pattern4.test(trimmed);
-
-        if (!matchesPattern) {
-            return false;
-        }
-
-        // Try to parse and validate the date
-        try {
-            const parsed = new Date(trimmed);
-
-            if (isNaN(parsed.getTime())) {
-                return false;
-            }
-
-            // Sanity check: date should be reasonable
-            const now = new Date();
-            const minDate = new Date('2025-01-01');
-            //const maxDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000); // +1 year
-
-            return parsed >= minDate;
-        } catch {
-            return false;
-        }
-    }
-
-    /**
      * Normalize lastUpdated to a consistent format for comparison
      */
     protected normalizeLeaderboardVersion(lastUpdated: string): string {
@@ -256,43 +193,10 @@ export abstract class LMArenaBaseStrategy implements Strategy<LMArenaResult> {
         }
 
         // Check if modelRanks exists and has data
-        if (!data.modelRanks || data.modelRanks.length === 0) {
+        if (!data.entries || data.entries.length === 0) {
             logger.warn(`[${strategyName}] No model ranks in data.`);
             return false;
         }
-
-        // Validate lastUpdated format
-        if (!this.validateLastUpdated(data.lastUpdated)) {
-            this.validationFailureCount++;
-
-            logger.warn(
-                `[${strategyName}] ?? Invalid lastUpdated format: "${data.lastUpdated}". ` +
-                `Skipping this poll. (Failure ${this.validationFailureCount}/${this.MAX_VALIDATION_FAILURES})`
-            );
-
-            // Alert if too many consecutive failures
-            if (this.validationFailureCount >= this.MAX_VALIDATION_FAILURES) {
-                const alertMsg =
-                    `[${strategyName}] ?? ALERT: ${this.validationFailureCount} consecutive validation failures!\n` +
-                    `Last received lastUpdated: "${data.lastUpdated}"\n` +
-                    `Please check the monitor/scraper.`;
-
-                logger.error(alertMsg);
-
-                if (this.notifier) {
-                    await this.notifier.notify(alertMsg);
-                }
-
-                // true for Exit Bot
-                return true;
-            }
-
-            // false for Next try
-            return false;
-        }
-
-        // Validation passed, reset failure counter
-        this.validationFailureCount = 0;
 
         // Check current event period
         const currentPeriod = this.getCurrentEventPeriod();
@@ -301,7 +205,7 @@ export abstract class LMArenaBaseStrategy implements Strategy<LMArenaResult> {
             return false;
         }
 
-        const leaderboardVersion = data.lastUpdated;
+        const leaderboardVersion = data.voteCutoffISOString;
         const isNewLeaderboardVersion = leaderboardVersion !== this.lastSeenLeaderboardVersion;
 
         if (isNewLeaderboardVersion && this.lastSeenLeaderboardVersion !== '') {
@@ -321,35 +225,35 @@ export abstract class LMArenaBaseStrategy implements Strategy<LMArenaResult> {
         }
 
         logger.info(
-            `[${strategyName}] Evaluating ${data.modelRanks.length} models.\n` +
+            `[${strategyName}] Evaluating ${data.entries.length} models.\n` +
             `  Last Updated: ${leaderboardVersion}\n` +
             `  Active Period: ${currentPeriod.label} (ends ${currentPeriod.endDate.toISOString()})`
         );
 
         // Get top 3 models (already sorted by rank from monitor)
-        const top3 = data.modelRanks.filter(m => m.rank >= 1 && m.rank <= 3).slice(0, 3);
+        const top3 = data.entries.filter(m => m.rank >= 1 && m.rank <= 3).slice(0, 3);
 
         // Fallback: if rank field is not reliable, use first 3
-        const effectiveTop3 = top3.length === 3 ? top3 : data.modelRanks.slice(0, 3);
+        const effectiveTop3 = top3.length === 3 ? top3 : data.entries.slice(0, 3);
 
         // INITIALIZATION PHASE
         if (!this.initialized) {
             this.lastSeenLeaderboardVersion = leaderboardVersion;
-            return this.initialize(effectiveTop3, data.modelRanks);
+            return this.initialize(effectiveTop3, data.entries);
         }
 
         let actionTaken = false;
 
         // PHASE 1: Find new models (for logging/notifications)
-        for (const model of data.modelRanks) {
-            if (!this.knownModels.has(model.modelName)) {
-                const company = this.getCompanyByModelName(model.modelName);
+        for (const model of data.entries) {
+            if (!this.knownModels.has(model.modelDisplayName)) {
+                const company = this.getCompanyByModelName(model.modelDisplayName);
                 logger.info(
-                    `[${strategyName}] 🆕 NEW MODEL: ${model.modelName} ` +
-                    `(${company || 'Unknown'}) Score: ${model.score}, Rank: ${model.rank}`
+                    `[${strategyName}] 🆕 NEW MODEL: ${model.modelDisplayName} ` +
+                    `(${company || 'Unknown'}) Score: ${model.rating}, Rank: ${model.rank}`
                 );
 
-                this.knownModels.add(model.modelName);
+                this.knownModels.add(model.modelDisplayName);
             }
         }
 
@@ -357,11 +261,11 @@ export abstract class LMArenaBaseStrategy implements Strategy<LMArenaResult> {
         for (let i = 0; i < effectiveTop3.length; i++) {
             const currentModel = effectiveTop3[i];
             const rankPosition = i + 1;
-            const currentCompany = this.getCompanyByModelName(currentModel.modelName);
+            const currentCompany = this.getCompanyByModelName(currentModel.modelDisplayName);
             const previousState = this.rankStates[i];
 
             if (!currentCompany) {
-                logger.warn(`[${strategyName}] Could not determine company for model: ${currentModel.modelName}`);
+                logger.warn(`[${strategyName}] Could not determine company for model: ${currentModel.modelDisplayName}`);
                 continue;
             }
 
@@ -375,17 +279,17 @@ export abstract class LMArenaBaseStrategy implements Strategy<LMArenaResult> {
                     // RANK CHANGED - Different company now holds this position
                     logger.info(
                         `[${strategyName}] 🔄 RANK #${rankPosition} CHANGE: ` +
-                        `${previousState.company} (${previousState.modelName}) -> ` +
-                        `${currentCompany} (${currentModel.modelName})`
+                        `${previousState.company} (${previousState.modelDisplayName}) -> ` +
+                        `${currentCompany} (${currentModel.modelDisplayName})`
                     );
 
                     if (this.notifier) {
                         this.notifier.notify(
                             `[${strategyName}] 🔄 RANK CHANGE!\n` +
                             `Position: #${rankPosition}\n` +
-                            `Previous: ${previousState.company} (${previousState.modelName})\n` +
-                            `New: ${currentCompany} (${currentModel.modelName})\n` +
-                            `Score: ${currentModel.score}\n` +
+                            `Previous: ${previousState.company} (${previousState.modelDisplayName})\n` +
+                            `New: ${currentCompany} (${currentModel.modelDisplayName})\n` +
+                            `Score: ${currentModel.rating}\n` +
                             `Period: ${currentPeriod.label}`
                         );
                     }
@@ -408,18 +312,18 @@ export abstract class LMArenaBaseStrategy implements Strategy<LMArenaResult> {
                         `Rank #${rankPosition} Change: ${previousState.company} lost position to ${currentCompany}`
                     );
 
-                } else if (currentModel.score !== previousState.score) {
+                } else if (currentModel.rating !== previousState.rating) {
                     // Same company, score changed - just log
-                    const direction = currentModel.score > previousState.score ? '📈' : '📉';
+                    const direction = currentModel.rating > previousState.rating ? '📈' : '📉';
                     logger.info(
                         `[${strategyName}] ${direction} Score change for ${currentCompany} at Rank #${rankPosition}: ` +
-                        `${previousState.score} -> ${currentModel.score} (${currentModel.modelName})`
+                        `${previousState.rating} -> ${currentModel.rating} (${currentModel.modelDisplayName})`
                     );
                 }
             } else if (!previousState || previousState.company === 'Unknown') {
                 // First time seeing this rank position properly
                 logger.info(
-                    `[${strategyName}] 📍 Rank #${rankPosition}: ${currentCompany} (${currentModel.modelName}), Score: ${currentModel.score}`
+                    `[${strategyName}] 📍 Rank #${rankPosition}: ${currentCompany} (${currentModel.modelDisplayName}), Score: ${currentModel.rating}`
                 );
             }
         }
@@ -429,7 +333,7 @@ export abstract class LMArenaBaseStrategy implements Strategy<LMArenaResult> {
         this.lastSeenLeaderboardVersion = leaderboardVersion;
 
         // Add all models to known set
-        data.modelRanks.forEach(m => this.knownModels.add(m.modelName));
+        data.entries.forEach(m => this.knownModels.add(m.modelDisplayName));
 
         // If no active event period, return true to exit bot
         if (this.getCurrentEventPeriod() == null) {
@@ -446,18 +350,18 @@ export abstract class LMArenaBaseStrategy implements Strategy<LMArenaResult> {
         for (let i = 0; i < 3; i++) {
             const model = top3[i];
             if (model) {
-                const company = this.getCompanyByModelName(model.modelName);
+                const company = this.getCompanyByModelName(model.modelDisplayName);
                 this.rankStates[i] = {
                     company: company || 'Unknown',
-                    modelName: model.modelName,
-                    score: model.score,
-                    organization: model.organization
+                    modelDisplayName: model.modelDisplayName,
+                    rating: model.rating,
+                    modelOrganization: model.modelOrganization
                 };
             }
         }
 
         // Populate all known models
-        allModels.forEach(m => this.knownModels.add(m.modelName));
+        allModels.forEach(m => this.knownModels.add(m.modelDisplayName));
 
         this.initialized = true;
 
@@ -465,9 +369,9 @@ export abstract class LMArenaBaseStrategy implements Strategy<LMArenaResult> {
             `[${strategyName}] ✅ Initialized!\n` +
             `  Leaderboard: ${this.getLeaderboardType()}\n` +
             `  Active Period: ${currentPeriod?.label || 'None'}\n` +
-            `  Rank #1: ${this.rankStates[0]?.company} (${this.rankStates[0]?.modelName}) - ${this.rankStates[0]?.score}\n` +
-            `  Rank #2: ${this.rankStates[1]?.company} (${this.rankStates[1]?.modelName}) - ${this.rankStates[1]?.score}\n` +
-            `  Rank #3: ${this.rankStates[2]?.company} (${this.rankStates[2]?.modelName}) - ${this.rankStates[2]?.score}\n` +
+            `  Rank #1: ${this.rankStates[0]?.company} (${this.rankStates[0]?.modelDisplayName}) - ${this.rankStates[0]?.rating}\n` +
+            `  Rank #2: ${this.rankStates[1]?.company} (${this.rankStates[1]?.modelDisplayName}) - ${this.rankStates[1]?.rating}\n` +
+            `  Rank #3: ${this.rankStates[2]?.company} (${this.rankStates[2]?.modelDisplayName}) - ${this.rankStates[2]?.rating}\n` +
             `  Known Models: ${this.knownModels.size}`;
 
         logger.info(initMsg);
@@ -483,12 +387,12 @@ export abstract class LMArenaBaseStrategy implements Strategy<LMArenaResult> {
         for (let i = 0; i < 3; i++) {
             const model = top3[i];
             if (model) {
-                const company = this.getCompanyByModelName(model.modelName);
+                const company = this.getCompanyByModelName(model.modelDisplayName);
                 this.rankStates[i] = {
                     company: company || 'Unknown',
-                    modelName: model.modelName,
-                    score: model.score,
-                    organization: model.organization
+                    modelDisplayName: model.modelDisplayName,
+                    rating: model.rating,
+                    modelOrganization: model.modelOrganization
                 };
             }
         }
