@@ -62,7 +62,7 @@ private significantPatterns: RegExp[] = [
 
 ```bash
 # 启动 LiveBench 监控与策略
-node dist/index.js --monitor=LiveBenchCodingMonitor --strategy=LiveBenchCodingStrategy
+node dist/index.js --monitor=LiveBenchMonitor --strategy=LiveBenchCodingStrategy
 ```
 
 ## 测试与验证

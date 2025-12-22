@@ -105,7 +105,17 @@ node dist/index.js --monitor=Gemini3FlashMonitor --strategy=Gemini3FlashStrategy
 
 To start the bot with LiveBench Coding Monitor and Strategy:
 ```bash
-node dist/index.js --monitor=LiveBenchCodingMonitor --strategy=LiveBenchCodingStrategy
+node dist/index.js --monitor=LiveBenchMonitor --strategy=LiveBenchCodingStrategy
+```
+
+To start the bot with LiveBench Math Monitor and Strategy:
+```bash
+node dist/index.js --monitor=LiveBenchMonitor --strategy=LiveBenchMathStrategy
+```
+
+To start the bot with LiveBench Aggregate Monitor and Strategy:
+```bash
+node dist/index.js --monitor=LiveBenchMonitor --strategy=LiveBenchAggregateStrategy
 ```
 
 To start the bot with gemini-3 LMArena text with no style control on score Monitor and Strategy:

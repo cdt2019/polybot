@@ -1,17 +1,17 @@
 import { LiveBenchBaseStrategy } from './LiveBenchBaseStrategy';
 import { LiveBenchData } from '../monitors/LiveBenchMonitor';
 
-export class LiveBenchCodingStrategy extends LiveBenchBaseStrategy {
+export class LiveBenchMathStrategy extends LiveBenchBaseStrategy {
 
     getStrategyName(): string {
-        return 'LiveBenchCodingStrategy';
+        return 'LiveBenchMathStrategy';
     }
 
     getEventSlug(): string {
-        return 'which-company-will-have-the-best-ai-model-for-coding-at-the-end-of-2025';
+        return 'which-company-will-have-the-best-ai-model-for-math-at-the-end-of-2025';
     }
 
     getScore(model: LiveBenchData): number {
-        return model.codingAverage;
+        return model.mathematicsAverage;
     }
 }
